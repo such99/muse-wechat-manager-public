@@ -1,0 +1,11 @@
+* text=auto
+*.py text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.cs text eol=lf
+*.zip binary
+# Preserve the exact upstream bytes required by upstream-lock.json.
+vendor/** -text

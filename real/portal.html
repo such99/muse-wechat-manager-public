@@ -1,0 +1,46 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>账号使用者 Muse 接入</title>
+<style>body{font:17px system-ui;max-width:860px;margin:36px auto;padding:16px;line-height:1.65}button{padding:12px;margin:8px}pre{white-space:pre-wrap;background:#eee;padding:14px}label{display:block;margin:20px 0}</style>
+<h1>Muse 独立实例：__INSTANCE__</h1>
+<p id="stages">服务：读取中｜Muse 认证：未确认｜微信：未连接｜真实收发：未验证</p>
+<p id="routing">路由：读取中；主聊天和附件须分别验收。</p>
+<p id="queueState" style="padding:14px;border:2px solid #b7791f">主聊天转发队列：等待状态。</p>
+<p>“全部转发”只包括本人主要聊天里的新增 Muse 助手消息：微信提问的回复、网页聊天产生的回复和主动消息。网页用户消息不会回显。首次启用从当前进度开始；重启沿用本实例的持久游标和去重记录。长文完整分段，多气泡按原生边界排序，不设 8 气泡上限。</p>
+<p>程序不设置连续发送条数上限。微信接口实际拒收时会保留队列，并提示绑定的微信发新消息后再试。未知发送结果需要人工核查，不自动重发；网页和提醒卡片显示文字提示，任务状态卡及空占位不转发。附件内存传输仍受可用内存和平台格式约束。</p>
+<details><summary>处理发送结果不明的队首项</summary><p>先检查下面状态中的队首正文及原生消息 ID，再核对手机和 Muse。这里不会补发原消息。</p><label><input id="checkedQueue" type="checkbox">已核对这一项在手机和 Muse 的实际情况</label><button onclick="resolveQueue('confirmed_received')">手机已收到，本条不再发送</button><button onclick="resolveQueue('cancelled')">取消本条发送，保留原文</button></details>
+<p>若专用 Muse 页面误切到旁聊或刷新，请回到 https://muse.ai/ 主要聊天，确认仍是本人账号，再点击下面恢复监听。持久游标和未知提交保护不会清空，也不会重新生成旧消息。</p><button onclick="act('restore-feed',{confirm_main:document.querySelector('#owner').checked})">恢复已核对的主要聊天监听</button>
+<p>此页面仅供服务器本机操作。凭据保存在进程级环境变量、内存及隔离浏览器会话中；关闭服务后重新认证。请用服务器本机 Chrome 隐身窗口打开本页，并拒绝保存密码。</p>
+<p>当前日志策略会保留聊天正文：微信收发、API 文本上下文、Muse 回复和运行状态在本实例 logs 目录按天保存，正文和普通用户标识不打码，默认不自动删除。认证凭据、二维码授权数据、请求头和原始协议包不记录；日志不进入发布 ZIP。重启后仍需重新认证，保存的日志不会自动恢复聊天上下文。请向账号使用者说明服务器会处理并保存这些内容。真实测试对话也会出现在 Muse 中；主聊天核查完成前不改变路由、不向主聊天发送自动暗号测试。</p>
+<ol><li>点击“打开独立 Muse 登录窗口”，在新打开的隐身窗口中手动登录本人的 Muse。若转到 Google/Facebook，仍在该隐身会话内手动完成。</li>
+<li>在 Muse 账号设置中确认账号属于账号使用者，然后勾选下面的确认框并点击“接入当前会话”。Cookie 不显示、不下载、不写文件。</li>
+<li>使用下方“固定原生主聊天”：先只读核查并确认本人主要聊天，再启动微信桥接，最后由本人发送日常消息验收。旧旁聊历史重放测试只作兼容入口保留。</li></ol>
+<button onclick="act('login')">打开独立 Muse 登录窗口</button>
+<p>专用 Muse 浏览器关闭时，可保留微信进程并单独恢复浏览器。只允许恢复原 Muse 账号；不清除游标、去重或未确认提交，不自动重发。正常停止整个实例仍会断开微信。</p>
+<button onclick="act('recover-browser',{confirm_same_owner:true})">恢复已关闭的 Muse 浏览器（保留微信）</button>
+<label><input type="checkbox" id="owner">我已在隐身 Muse 页面核实：登录的是账号使用者的账号</label>
+<button onclick="act('capture',{confirm_owner:document.querySelector('#owner').checked})">接入当前会话</button>
+<button onclick="act('confirm-env',{confirm_owner:document.querySelector('#owner').checked})">确认运行时环境凭据归属</button>
+<details><summary>备用：在本机隐藏输入 Cookie JSON（不上传到聊天、不写文件）</summary><p>优先使用上方独立登录窗口。若已在服务器本机取得本人 Cookie，可在此输入四项 Cookie 的 JSON 对象；提交后立即清空输入框。请勿使用普通浏览器窗口或密码管理器保存此字段。</p><input id="secret" type="password" autocomplete="off" spellcheck="false" aria-label="Cookie JSON 隐藏输入"><button onclick="importSecret()">仅注入运行进程</button></details>
+<details><summary>旧旁聊兼容性测试（主聊天接入无需执行）</summary><p>此测试会新建旁聊并重放历史，不能证明主聊天或长期记忆。主聊天绑定后此入口禁用。</p><button onclick="act('test')">测试中文及历史上下文重放（约需数分钟）</button></details>
+<button onclick="act('renew')">核查真实 Cookie 续期（不显示值）</button>
+<section id="mainControls" hidden><h2>固定原生主聊天</h2>
+<p>先准备专用主聊天页并检查本人账号，必要时由本人完成人机验证。保持此页面为主要聊天并清空未发送草稿／引用。此操作不发送测试消息。确认后微信仅提交本次文字与附件，不再拼接旧历史；不会自动回退旁聊。若旧微信桥接还在运行，先在微信管理页停止桥接，再确认切换。</p>
+<button onclick="act('prepare-main')">打开并只读核查主聊天</button>
+<label><input id="mainOwner" type="checkbox">我已查看新开的专用 Muse 页面，确认这是账号使用者本人平时使用的主要聊天</label>
+<button onclick="act('recover-main',{confirm_same_owner:document.querySelector('#owner').checked,confirm_main:document.querySelector('#mainOwner').checked})">确认原账号并恢复主聊天（保留微信）</button>
+<button onclick="act('bind-main',{confirm_main:document.querySelector('#mainOwner').checked})">固定主聊天并启用原样转发</button>
+<p>图片、PDF、Word、UTF-8 文本和部分视频的内存传输代码已准备，真实附件收发仍须手机验收。微信语音尚未确认可由当前 Muse 网页附件入口接受，会明确提示。主聊天绑定不等于附件、主动提醒、长期记忆或工具能力已验证。</p></section>
+<p>旧版按请求关联的锚点模式保留作回滚。启用全部转发后，主聊天按后端原生消息 ID 和持久游标监听，只转助手内容；各气泡及其长文分段、附件按序入队，不依赖旧 DOM 前缀或本次提问关联。网页和微信同时输入时，原文提交仍须等待主聊天空闲；忙碌或失败会明确提示。</p>
+<button onclick="act('start-bridge')">启动本实例微信桥接</button>
+<button id="logsButton" hidden onclick="showLogs()">查看本机 Muse 日志（含正文）</button>
+<button onclick="act('stop')">停止此实例</button>
+<pre id="out">正在读取状态…</pre><div id="link"></div>
+<script>
+async function act(name,data={}){document.querySelector('#out').textContent='正在执行 '+name+'…';try{let r=await fetch('/local/'+name,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Action':'1'},body:JSON.stringify(data)});let j=await r.json();document.querySelector('#out').textContent=JSON.stringify(j,null,2);if(j.url){let a=document.createElement('a');a.href=j.url;a.textContent='打开账号使用者微信扫码页面';a.target='_blank';a.rel='noreferrer';document.querySelector('#link').replaceChildren(a)}}catch(e){document.querySelector('#out').textContent='服务已停止或操作失败，请检查服务状态。'}}
+async function importSecret(){let el=document.querySelector('#secret');let value=el.value;el.value='';try{await act('import',{cookies_json:value,confirm_owner:document.querySelector('#owner').checked})}finally{value=''}}
+async function status(){try{let r=await fetch('/local/status');document.querySelector('#out').textContent=JSON.stringify(await r.json(),null,2)}catch(e){}}
+async function showLogs(){try{let r=await fetch('/local/logs');document.querySelector('#out').textContent=JSON.stringify(await r.json(),null,2)}catch(e){document.querySelector('#out').textContent='日志读取失败，请检查服务版本和 logs 目录。'}}
+async function resolveQueue(resolution){let j=await (await fetch('/local/status')).json();await act('resolve-outbox',{n:j.main_feed?.head?.n,resolution,confirm_checked_phone_and_muse:document.querySelector('#checkedQueue').checked});document.querySelector('#checkedQueue').checked=false;await queueStatus()}
+async function queueStatus(){try{let j=await (await fetch('/local/status')).json(),q=j.main_feed,c=q?.counts||{},h=q?.head;let reason=h?.state==='waiting'?'等待绑定微信发任意消息后继续':h?.state==='uncertain'||h?.state==='sending'?'发送结果不明，请人工核对队首项':q?.error?'监听未就绪，请检查专用主聊天页面':h?'按序排队发送':'无待发送消息';if(q?.wechat_waiting_reason==='wechat_requires_user_interaction')reason='微信接口已拒绝发送：队列保留，请在微信发一条消息后再试';if(q?.wechat_waiting_reason==='wechat_reply_context_required')reason='微信会话待初始化：请在微信发一条消息';document.querySelector('#queueState').textContent=q?.enabled?'主聊天全部助手消息转发：已启用（程序不设条数上限）｜待发送 '+(c.pending||0)+'｜已受理 '+(c.sent||0)+'｜未送达/未确认 '+((c.waiting||0)+(c.uncertain||0)+(c.sending||0))+'｜'+reason:'主聊天全部助手消息转发：未启用，真实新队列尚未验收'}catch(e){document.querySelector('#queueState').textContent='队列状态读取失败，请检查本机服务。'}}
+async function stages(){try{let r=await fetch('/local/status');let j=await r.json();document.querySelector('#logsButton').hidden=!(j.logging&&j.logging.enabled);document.querySelector('#mainControls').hidden=!j.native_main;document.querySelector('#routing').textContent=j.routing==='native_main'?'路由：原生主聊天｜固定绑定：'+(j.native_main.bound?'已绑定':'待本人确认')+'｜不附旧历史｜真实附件、主动提醒及长期能力另行验收':'路由：当前仍为旁聊历史重放；主聊天代码需新版服务启动并确认后启用。';let s=j.stages;document.querySelector('#stages').textContent='服务：'+(s.service_running?'已启动':'未启动')+'｜Muse 认证：'+(s.muse_authenticated?'已认证':'未认证')+'｜微信：'+(s.wechat_connected?(s.wechat_user_bound?'已连接并绑定':'已连接，待绑定'):'未连接')+'｜真实收发：'+(s.real_roundtrip_verified?'已人工验收':'未验证')}catch(e){document.querySelector('#stages').textContent='服务：无法连接，请在项目目录运行 start-real.ps1；其他状态需重新核验。'}}
+status();stages();queueStatus();setInterval(()=>{stages();queueStatus()},5000);
+</script></html>

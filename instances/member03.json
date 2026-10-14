@@ -1,0 +1,20 @@
+{
+  "muse_port": 20009,
+  "bridge_port": 20010,
+  "cdp_port": 20011,
+  "instance": "member03",
+  "display_name": "成员 03",
+  "site": "https://muse.ai/",
+  "model": "muse-spark",
+  "managed": true,
+  "autostart": false,
+  "credential_storage": "windows_dpapi",
+  "routing": {
+    "mode": "native_main",
+    "forward_all": true
+  },
+  "logging": {
+    "enabled": true,
+    "chat_bodies": true
+  }
+}

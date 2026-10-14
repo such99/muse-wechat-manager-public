@@ -1,0 +1,24 @@
+[
+  {
+    "name": "muse2api-live",
+    "url": "https://github.com/czg86389-hub/muse2api.git",
+    "revision": "cfcfee41d083cfcf67b1d596c90f2c5e69f63031",
+    "files": {
+      "engine.py": "f1c29785971b6443e2998a29a269eac936dc735938184f5f0e1fbcc1687bca54",
+      "cdp.py": "a177cb4c20ba62fadc22af5fbd5a78c4c88f408a22e5e205a8b67fe731bda095",
+      "LICENSE": "4f3b30d039ec0354736b1b0e4b08bf709bb9d9624561913f86f53b6aab2caffc"
+    }
+  },
+  {
+    "name": "WeChat-Bridge",
+    "url": "https://github.com/yuuouu/WeChat-Bridge.git",
+    "revision": "101acd9657928d63c0f664f368bb72a125fc2fbf",
+    "files": {
+      "app/ilink.py": "1c86ffc72f30df818a4ff2e5d1adb676271a36253de348875fb1250a8e194bc0",
+      "app/version.py": "aedeef5f8bb30feacbb45c7de52b0d8c390cef9c538eda3770be72273118d159",
+      "app/ai_chat.py": "5c239284fc073fdae425bdbb692c98cd0c595f927d08d46ce32208f553aeff2d",
+      "app/media.py": "202daf63c21889861d9b4909255cbe34cdf14425f18744c71c6f05fe22fe6401",
+      "LICENSE": "ab686ba0db106258b091ee9d6466f31a8f2a476f9c5c5376f0f9a604b4b9a2cb"
+    }
+  }
+]

@@ -1,0 +1,43 @@
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+secrets/
+*.dpapi
+*.pem
+*.key
+.aws/
+.ssh/
+
+# Live instance data, browser sessions and logs
+runtime/
+manager-data/
+profiles/
+user-data/
+*.log
+*.jsonl
+*.db
+*.sqlite
+*.sqlite3
+
+# Development and generated build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.pytest-work/
+.ruff_cache/
+build-cache/
+build/
+dist/
+releases/
+runtime-python/
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+# Portable binaries belong in GitHub Releases, never in source history.
+*.zip
+*.exe
