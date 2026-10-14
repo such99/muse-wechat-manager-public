@@ -15,7 +15,7 @@ import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from common import ROOT, secure_local
+from common import ROOT, secure_local, secret_matches
 from credential_vault import Vault, VaultError
 from manager_core import Supervisor, ManagerError
 from mimo_manager import MiMoAssistant, diagnostic
@@ -67,7 +67,7 @@ def create_manager(root=ROOT, port=18700, supervisor=None):
 
     @app.middleware('http')
     async def manager_session(request, next_handler):
-        if request.url.path.startswith('/local/') and not secrets.compare_digest(request.cookies.get('manager_session', ''), session):
+        if request.url.path.startswith('/local/') and not secret_matches(request.cookies.get('manager_session', ''), session):
             return JSONResponse({'detail': '请先打开本机管理首页。'}, status_code=401)
         if request.method == 'POST':
             try:

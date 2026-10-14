@@ -170,7 +170,7 @@ const feedBind = () => {
     Promise.resolve(c.control.sendMessage(text,attachments,{targetRoute:{kind:'main'},waitForReadiness:false,
       failureReporting:'caller',consumeComposerInput:false})).then(result=>{
       if(result?.ok===true&&typeof result.messageId==='string'&&result.messageId){
-        run.phase='acknowledged';run.message_id=result.messageId;active=null;
+        run.phase='acknowledged';run.message_id=result.messageId;if(active===id)active=null;
         for(const [old,entry] of attempts)if(attempts.size>1000&&old!==id&&entry.phase==='acknowledged')attempts.delete(old);
       }else run.phase='uncertain';
     }).catch(()=>run.phase='uncertain');
@@ -184,5 +184,14 @@ const feedBind = () => {
       atob(r.data_base64).length!==r.len||typeof r.eof!=='boolean')throw Error('invalid_media_payload');
     return {data_base64:r.data_base64,len:r.len,eof:r.eof};
   };
-  return {scan,submit,download,attempt:id=>attempts.get(id)||{phase:'missing'}};
+  const reviewedRelease=(id,resolution)=>{
+    const c=verify();clean(c);
+    // A pending ACK may be released only after the human confirms the exact
+    // input already exists. "Not submitted" cannot cancel an in-flight send.
+    if(active&&(active!==id||(attempts.get(active)?.phase==='submitting'&&resolution!=='acknowledged')))
+      throw Error('previous_submission_unresolved');
+    if(active){attempts.get(active).phase='reviewed';active=null;}
+    return true; // No sendMessage call, attempt deletion, cursor reset or replay.
+  };
+  return {scan,submit,download,reviewedRelease,attempt:id=>attempts.get(id)||{phase:'missing'}};
 };

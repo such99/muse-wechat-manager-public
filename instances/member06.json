@@ -15,6 +15,6 @@
   },
   "logging": {
     "enabled": true,
-    "chat_bodies": true
+    "chat_bodies": false
   }
 }

@@ -80,7 +80,7 @@ class Registry:
             data.update(instance=name, display_name=label.strip(), site='https://muse.ai/', model='muse-spark',
                         managed=True, autostart=False, credential_storage='windows_dpapi',
                         routing={'mode': 'native_main', 'forward_all': True},
-                        logging={'enabled': True, 'chat_bodies': True})
+                        logging={'enabled': True, 'chat_bodies': False})
             atomic_json(path, data)
             return data
 

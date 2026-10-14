@@ -27,6 +27,7 @@ class MainFeed:
         self.store=FeedStore(':memory:');self.store_on_disk=False
         self.enabled=False;self.error=None;self.submission_uncertain=self.store.unresolved_input()
         self.generation_halted=False
+        self.generation_failure=None
         self.submitted=0;self.observed=0
         self.poll_delay=1.0
 
@@ -60,6 +61,8 @@ class MainFeed:
             self.store.close();self.store=FeedStore(self.settings['runtime']/'main-feed.sqlite3');self.store_on_disk=True
         self.submission_uncertain=self.store.unresolved_input()
         self.store.initialize(snapshot['owner'],cursor)
+        self.generation_failure=self.store.get('generation_pause')
+        self.generation_halted=bool(self.generation_failure)
         self.enabled=True;self.error=None
         try:self._recover_reviewed_reply(snapshot['owner'])
         except Exception:
@@ -91,8 +94,13 @@ class MainFeed:
             self.store.initialize(snapshot['owner'],self.store.get('cursor'))
             before=self.store.get('cursor')
             self.store.ingest(snapshot['rows'],self.scrub)
-            if any(r['seq']>before and r['role']=='assistant' and r.get('status') in ('failed','interrupted') for r in snapshot['rows']):
-                self.generation_halted=True
+            failures=[r for r in snapshot['rows'] if before<r['seq']<=self.store.get('cursor')
+                and r['main'] and r['ready'] and r['role']=='assistant'
+                and r.get('status') in ('failed','interrupted')]
+            if failures:
+                last=failures[-1]
+                self.generation_failure={k:last[k] for k in ('seq','message_id','status')}
+                self.store.generation_pause(self.generation_failure);self.generation_halted=True
             self.observed+=sum(r['seq']>before and r['seq']<=self.store.get('cursor') and r['role']=='assistant' and r['main'] for r in snapshot['rows'])
             for row in snapshot['rows']:
                 if before<row['seq']<=self.store.get('cursor') and row['role']=='assistant' and row['main']:
@@ -111,7 +119,7 @@ class MainFeed:
         if not readiness['ready']:
             raise ChatFailure(readiness['reason'],'Muse 正在处理消息或有网页草稿，本条尚未提交；入站队列会等待。')
         fingerprint=hashlib.sha256(json.dumps([text,[f.metadata() for f in files]],ensure_ascii=True,sort_keys=True).encode()).hexdigest()
-        if not self.store.claim_input(source_id,fingerprint):return {'phase':'duplicate','request_id':rid}
+        if not self.store.claim_input(source_id,fingerprint,rid):return {'phase':'duplicate','request_id':rid}
         try:
             self.submission_uncertain=True
             result=self.call('submit',rid,text,[f.wire() for f in files])
@@ -119,14 +127,15 @@ class MainFeed:
             while result['phase']=='submitting' and time.monotonic()<deadline:
                 time.sleep(.2);result=self.call('attempt',rid)
             if result['phase']!='acknowledged':raise ChatFailure('submission_unresolved','消息提交结果未确认，已停止新提交，请到 Muse 核查；没有自动重发。')
-            self.submission_uncertain=False;self.submitted+=1
             self.store.input_result(source_id,'acknowledged')
+            self.submission_uncertain=False;self.submitted+=1
             self.journal.event('api.submission_acknowledged',request_id=rid,message_id=result['message_id'])
             return {'phase':'acknowledged','message_id':result['message_id'],'request_id':rid,
                 'assistant_completion_verified':False}
         except NativeUIError as e:
             if e.code in ('main_chat_busy','composer_has_user_draft'):
                 self.submission_uncertain=False;self.store.input_result(source_id,'not_submitted')
+            else:self.store.input_result(source_id,'uncertain')
             raise
         except ChatFailure as e:
             if e.reason in ('main_chat_busy','composer_has_user_draft'):
@@ -146,6 +155,38 @@ class MainFeed:
         if probe['has_user_draft']:return {'ready':False,'reason':'composer_has_user_draft'}
         return {'ready':True,'reason':None}
 
+    def _review_idle(self,expected_owner):
+        if not self.enabled or not expected_owner or self.store.get('owner')!=expected_owner:
+            raise ChatFailure('review_owner_changed','主聊天所属账号已变化，请重新核对。')
+        probe=self.native.probe()
+        snapshot=self.call('scan',self.store.get('cursor'),await_promise=True)
+        if hashlib.sha256(snapshot['owner'].encode()).hexdigest()!=expected_owner:
+            raise ChatFailure('review_owner_changed','主聊天所属账号已变化，请重新核对。')
+        if probe['main_busy'] or snapshot.get('busy') or probe['has_user_draft']:
+            raise ChatFailure('main_chat_busy','主聊天仍在处理或有草稿，暂不能解除暂停。')
+        if any(r['main'] and r['role']=='assistant' and not r['ready'] for r in snapshot['rows']):
+            raise ChatFailure('main_feed_settling','主聊天记录尚在稳定，请稍后重新核对。')
+
+    def resolve_submission(self,source_id,resolution,expected_owner):
+        if resolution not in ('acknowledged','not_submitted_reviewed'):
+            raise ValueError('Manual input result required')
+        self._review_idle(expected_owner)
+        record=self.store.input_record(source_id)
+        self.call('reviewedRelease',record['request_id'] if record else None,resolution)
+        self.store.resolve_input(source_id,resolution)
+        self.submission_uncertain=self.store.unresolved_input()
+        self.journal.event('muse.input_manually_resolved',message_id=source_id,status=resolution)
+        return self.status()
+
+    def resolve_generation(self,expected_failure,expected_owner):
+        self._review_idle(expected_owner)
+        self.poll()  # Refuse a confirmation made stale by a later failed row.
+        if self.store.unresolved_input() or not self.generation_failure or self.generation_failure!=expected_failure:
+            raise ValueError('Resolve the exact current generation pause')
+        self.store.generation_pause(None);self.generation_failure=None;self.generation_halted=False
+        self.journal.event('muse.generation_manually_resumed',message_id=expected_failure['message_id'])
+        return self.status()
+
     def attachment(self,info):
         workspace_path(info['path']);name=safe_name(info['filename']);data=bytearray()
         while True:
@@ -161,6 +202,7 @@ class MainFeed:
     def status(self):
         return {'enabled':self.enabled,'error':self.error,'submission_uncertain':self.submission_uncertain,
             'generation_halted':self.generation_halted,
+            'generation_failure':self.generation_failure,
             'submitted_acknowledged':self.submitted,'assistant_messages_observed':self.observed,**self.store.status()}
 
     def close(self):

@@ -1,8 +1,8 @@
 """Ordered RAM input payloads; durable metadata never contains auth or bytes.
 
 Readiness failures are read-only waits. An ambiguous POST is never retried.
-Queued media cannot survive restart under the no-credential/binary-disk policy;
-its durable record explicitly says not submitted and needs manual resending.
+Queued text and media payloads remain in memory. Restart keeps metadata and
+warns the same bound sender; known-unsubmitted redeliveries may be queued again.
 """
 import hashlib
 import json
@@ -28,14 +28,29 @@ class IncomingQueue:
     def enqueue(self,uid,mid,items):
         key=hashlib.sha256(json.dumps([uid,mid],ensure_ascii=True).encode()).hexdigest()
         with self.lock,self.db:
-            if self.db.execute('SELECT 1 FROM incoming WHERE k=?',(key,)).fetchone():return 'duplicate'
+            previous=self.db.execute('SELECT state FROM incoming WHERE k=?',(key,)).fetchone()
+            if previous and previous[0] not in ('not_submitted_restart','not_submitted_shutdown'):return 'duplicate'
             if len(self.tasks)>=self.capacity:
-                self.db.execute("INSERT INTO incoming VALUES(?,?,'not_submitted','queue_capacity',NULL)",(key,mid))
+                if not previous:self.db.execute("INSERT INTO incoming VALUES(?,?,'not_submitted','queue_capacity',NULL)",(key,mid))
                 return 'queue_capacity'
-            self.db.execute("INSERT INTO incoming VALUES(?,?,'queued',NULL,NULL)",(key,mid))
+            self.db.execute("INSERT OR REPLACE INTO incoming VALUES(?,?,'queued',NULL,NULL)",(key,mid))
             self.tasks.append({'key':key,'uid':uid,'mid':mid,'items':items,'payload':None,'state':'queued','reason':None,'notices':set()})
         self.journal.event('wechat.inbound_queued',message_id=mid)
+        self.warn_restart(uid)
         return 'queued'
+
+    def warn_restart(self,uid):
+        with self.lock:
+            rows=[r for r in self.db.execute("SELECT k,mid FROM incoming WHERE state IN ('not_submitted_restart','not_submitted_shutdown') AND reason='manual_resend_required'")
+                if r[0]==hashlib.sha256(json.dumps([uid,r[1]],ensure_ascii=True).encode()).hexdigest()]
+        if not rows:return
+        marker='restart-review:'+hashlib.sha256(json.dumps(sorted(r[0] for r in rows)).encode()).hexdigest()
+        try:
+            self.notice(uid,marker,f'【上次停止或重启前有 {len(rows)} 条文字或附件尚未提交 Muse，内容未恢复。请核对后重新发送；本次没有自动补发。】')
+        except Exception:
+            self.journal.event('wechat.restart_notice_unconfirmed',reason='retry_same_deduplicated_notice_on_next_input');return
+        with self.lock,self.db:
+            self.db.executemany("UPDATE incoming SET reason='manual_resend_notice_queued' WHERE k=? AND reason='manual_resend_required'",[(r[0],) for r in rows])
 
     def record(self,task,state,reason=None):
         if task['state']==state and task['reason']==reason:return
@@ -127,13 +142,24 @@ class IncomingQueue:
                 'halted':self.halted,
                 'uncertain_inputs':[{'message_id':r[0],'reason':r[1]} for r in self.db.execute("SELECT mid,reason FROM incoming WHERE state='uncertain'")],
                 'counts':{r[0]:r[1] for r in self.db.execute('SELECT state,count(*) FROM incoming GROUP BY state')},
-                'payloads_in_memory_only':True,'restart_requires_manual_resend_for_unsubmitted_media':True}
+                'payloads_in_memory_only':True,'restart_requires_manual_resend_for_unsubmitted_media':True,
+                'restart_requires_manual_resend_for_unsubmitted_messages':True,
+                'unsubmitted_after_restart':self.db.execute("SELECT count(*) FROM incoming WHERE state IN ('not_submitted_restart','not_submitted_shutdown')").fetchone()[0]}
 
-    def resolve(self,mid,resolution):
+    def review_key(self,uid,mid,resolution):
+        if not isinstance(uid,str) or not uid or not isinstance(mid,str) or not mid or resolution not in ('acknowledged','not_submitted_reviewed'):
+            raise ValueError('Bound sender and exact manual result required')
+        key=hashlib.sha256(json.dumps([uid,mid],ensure_ascii=True).encode()).hexdigest()
+        with self.lock:
+            rows=self.db.execute("SELECT k FROM incoming WHERE mid=? AND state='uncertain'",(mid,)).fetchall()
+            if len(rows)!=1 or rows[0][0]!=key:raise ValueError('Uncertain input belongs to another sender')
+        return key
+
+    def resolve(self,mid,resolution,expected_key=None):
         if resolution not in ('acknowledged','not_submitted_reviewed'):raise ValueError('Manual resolution required')
         with self.lock,self.db:
             rows=self.db.execute("SELECT k FROM incoming WHERE mid=? AND state='uncertain'",(mid,)).fetchall()
-            if len(rows)!=1:raise ValueError('Unique uncertain input required')
+            if len(rows)!=1 or (expected_key is not None and rows[0][0]!=expected_key):raise ValueError('Unique uncertain input required')
             self.db.execute("UPDATE incoming SET state=?,reason='manual_review_no_retry' WHERE k=?",(resolution,rows[0][0]))
             if self.tasks and self.tasks[0]['key']==rows[0][0]:
                 task=self.tasks.popleft();task['payload']=None;task['items']=None

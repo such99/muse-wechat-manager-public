@@ -23,7 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import ROOT, CODE_ROOT, OneAccount, load_instance, quiet, secure_local, persist_routing
+from common import ROOT, CODE_ROOT, OneAccount, load_instance, quiet, secure_local, persist_routing, secret_matches
 from journal import InstanceJournal
 from strict_engine import StrictEngine, MuseAuthError, authentication_failure_code
 from native_chat import NativeMainChat
@@ -189,7 +189,7 @@ def create_service(settings, engine=None):
     secure_local(app, settings['muse_port'])
 
     def auth(request):
-        if not secrets.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + key):
+        if not secret_matches(request.headers.get('authorization', ''), 'Bearer ' + key):
             raise HTTPException(401, 'API authentication required')
 
     @app.get('/')
@@ -470,6 +470,35 @@ def create_service(settings, engine=None):
             journal.event('api.failed',request_id=rid,reason=e.reason)
             if e.reason=='authentication_failed':account.invalidate()
             return JSONResponse({'code':e.reason,'notice':e.notice},status_code=401 if e.reason=='authentication_failed' else 409)
+
+    async def reviewed_input(request):
+        body=await request.json()
+        if (not account.available or not state['owner_confirmed'] or not feed.enabled
+                or body.get('confirm_checked_main_chat') is not True):
+            raise HTTPException(409,'Confirm the original input in the current owner main chat first')
+        source=body.get('source_id');owner=body.get('owner_fingerprint')
+        if (not isinstance(source,str) or not re.fullmatch('[a-f0-9]{64}',source)
+                or not isinstance(owner,str) or not re.fullmatch('[a-f0-9]{64}',owner)):
+            raise HTTPException(422,'Exact input and owner identity required')
+        try:return await work(feed.resolve_submission,source,body.get('resolution'),owner)
+        except (ValueError,ChatFailure):raise HTTPException(409,'Input, owner or main-chat readiness changed; nothing resent') from None
+
+    @app.post('/local/resolve-input')
+    async def local_resolve_input(request:Request):return await reviewed_input(request)
+
+    @app.post('/v1/muse/resolve-input')
+    async def api_resolve_input(request:Request):
+        auth(request)
+        return await reviewed_input(request)
+
+    @app.post('/local/resolve-generation')
+    async def resolve_generation(request:Request):
+        body=await request.json()
+        if (not account.available or not state['owner_confirmed'] or not feed.enabled
+                or body.get('confirm_checked_main_chat') is not True):
+            raise HTTPException(409,'Check the failed generation and current account first')
+        try:return await work(feed.resolve_generation,body.get('failure'),body.get('owner_fingerprint'))
+        except (ValueError,ChatFailure):raise HTTPException(409,'Pause, owner or main-chat readiness changed; nothing regenerated') from None
 
     @app.post('/v1/muse/outbox')
     async def feed_action(request:Request):

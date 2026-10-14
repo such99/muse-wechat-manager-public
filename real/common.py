@@ -58,10 +58,42 @@ def persist_routing(settings,mode):
     settings['routing']=data['routing']
 
 
+def secret_matches(actual,expected):
+    try:return secrets.compare_digest(actual.encode('utf-8'),expected.encode('utf-8'))
+    except (AttributeError,UnicodeError):return False
+
+
+class LocalBodyLimit:
+    """Bound local control requests while receiving, including chunked bodies."""
+    def __init__(self,app,limit=65536):self.app,self.limit=app,limit
+
+    async def __call__(self,scope,receive,send):
+        if scope['type']!='http' or not scope.get('path','').startswith('/local/') or scope['method'] in ('GET','HEAD'):
+            return await self.app(scope,receive,send)
+        from fastapi.responses import JSONResponse
+        chunks=[];size=0
+        while True:
+            message=await receive()
+            if message['type']=='http.disconnect':return
+            chunk=message.get('body',b'');size+=len(chunk)
+            if size>self.limit:
+                return await JSONResponse({'detail':'请求过大。'},status_code=413)(scope,receive,send)
+            chunks.append(chunk)
+            if not message.get('more_body',False):break
+        replayed=False
+        async def replay():
+            nonlocal replayed
+            if replayed:return await receive()
+            replayed=True
+            return {'type':'http.request','body':b''.join(chunks),'more_body':False}
+        await self.app(scope,replay,send)
+
+
 def secure_local(app, port):
     """Origin + custom-header CSRF guard; no UI credential cookie to persist."""
     from fastapi.responses import JSONResponse
     origin = f'http://127.0.0.1:{port}'
+    app.add_middleware(LocalBodyLimit)
 
     @app.middleware('http')
     async def boundary(request, call_next):

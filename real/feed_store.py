@@ -33,6 +33,8 @@ class FeedStore:
         ''')
         if 'fingerprint' not in {r[1] for r in self.db.execute('PRAGMA table_info(inputs)')}:
             self.db.execute('ALTER TABLE inputs ADD COLUMN fingerprint TEXT')
+        if 'request_id' not in {r[1] for r in self.db.execute('PRAGMA table_info(inputs)')}:
+            self.db.execute('ALTER TABLE inputs ADD COLUMN request_id TEXT')
         # An interrupted send can have reached WeChat. Never silently retry it.
         if recover_interrupted:
             self.db.execute("UPDATE actions SET state='uncertain',reason='interrupted_send' WHERE state='sending'")
@@ -208,12 +210,30 @@ class FeedStore:
                 'unavailable_file':h['body']}
             self.db.execute("UPDATE actions SET kind='text',body=?,state='pending',reason='attachment_unavailable' WHERE n=?",(json.dumps(body,ensure_ascii=False),n))
 
-    def claim_input(self,key,fingerprint=None):
+    def claim_input(self,key,fingerprint=None,request_id=None):
         with self.lock,self.db:
-            inserted=self.db.execute("INSERT OR IGNORE INTO inputs(id,state,fingerprint) VALUES(?,'claimed',?)",(key,fingerprint)).rowcount
+            inserted=self.db.execute("INSERT OR IGNORE INTO inputs(id,state,fingerprint,request_id) VALUES(?,'claimed',?,?)",(key,fingerprint,request_id)).rowcount
             if inserted:return True
             if fingerprint is None:return False
-            return bool(self.db.execute("UPDATE inputs SET state='claimed' WHERE id=? AND state='not_submitted' AND fingerprint=?",(key,fingerprint)).rowcount)
+            return bool(self.db.execute("UPDATE inputs SET state='claimed',request_id=? WHERE id=? AND state='not_submitted' AND fingerprint=?",(request_id,key,fingerprint)).rowcount)
+
+    def input_record(self,key):
+        with self.lock:
+            row=self.db.execute('SELECT id,state,request_id FROM inputs WHERE id=?',(key,)).fetchone()
+            return dict(row) if row else None
+
+    def resolve_input(self,key,resolution):
+        # Reviewed cancellation is terminal: never make the old input retryable.
+        if resolution not in ('acknowledged','not_submitted_reviewed'):raise ValueError('Invalid resolution')
+        with self.lock,self.db:
+            row=self.input_record(key)
+            if row and row['state'] not in ('claimed','uncertain',resolution):
+                raise ValueError('Input already has a different result')
+            if row:self.db.execute('UPDATE inputs SET state=? WHERE id=?',(resolution,key))
+            else:self.db.execute('INSERT INTO inputs(id,state) VALUES(?,?)',(key,resolution))
+
+    def generation_pause(self,failure):
+        with self.lock,self.db:self._set('generation_pause',failure)
 
     def input_result(self,key,state):
         with self.lock,self.db:self.db.execute('UPDATE inputs SET state=? WHERE id=?',(state,key))
@@ -226,6 +246,8 @@ class FeedStore:
             counts={r[0]:r[1] for r in self.db.execute('SELECT state,count(*) FROM actions GROUP BY state')}
             head=self.head()
             return {'counts':counts,'cursor':self.get('cursor'),'head':head,'history_replay':False,
+                'owner_fingerprint':self.get('owner'),
+                'unresolved_inputs':[dict(r) for r in self.db.execute("SELECT id,state,request_id FROM inputs WHERE state IN ('claimed','uncertain')")],
                 'scope':'all_new_main_assistant_messages','text_truncation':False,'bubble_count_limit':None}
 
     def close(self):

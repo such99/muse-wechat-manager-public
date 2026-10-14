@@ -2,7 +2,7 @@
 
 Windows x64 本机管理软件：每组连接一个 Muse 账号和一个微信 Bot 授权，凭据、浏览器与消息数据分别隔离。MiMo 可辅助诊断和提出管理操作，执行前仍须在本机确认。
 
-当前版本为 **0.1.0-preview-r10**，作为实验性预览版公开源码与便携包。此仓库使用独立的干净历史。
+当前已发布便携版本为 **0.1.0-preview-r10**。main 分支另有 **r11 审查候选**：修复提交锁恢复、重启丢失提示和生成暂停，尚未包含在 r10 ZIP 中，详见 [审查修复与剩余问题](docs/CLAUDE-REVIEW-FIXES.md)。此仓库使用独立的干净历史。
 
 ## 下载与使用
 
@@ -55,7 +55,7 @@ python -m venv .venv
 & .\.venv\Scripts\python.exe -m pip install -r requirements-dev.lock.txt
 New-Item -ItemType Directory -Path build-cache -Force
 Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.14/python-3.13.14-embed-amd64.zip' -OutFile 'build-cache\python-3.13.14-embed-amd64.zip'
-& .\.venv\Scripts\python.exe -I packaging\build.py --output 'C:\MuseBuild\MuseWeChatManager-0.1.0-preview-r10'
+& .\.venv\Scripts\python.exe -I packaging\build.py --output 'C:\MuseBuild\MuseWeChatManager-0.1.0-preview-r11-review'
 ```
 
 输出必须为不存在的新目录；构建验证 Python ZIP、生产依赖版本及上游源码哈希。完整步骤见操作手册。固定环境已用于本轮构建；另一台电脑上的全新联网安装仍需验证。
@@ -63,12 +63,14 @@ Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.13.14/python-3.13.14
 验证独立便携包时可以选择空闲管理端口：
 
 ```powershell
-& .\.venv\Scripts\python.exe -I packaging\verify_bundle.py 'C:\MuseBuild\MuseWeChatManager-0.1.0-preview-r10.zip' 'C:\MuseBuild\r10-check' --port 19700
+& .\.venv\Scripts\python.exe -I packaging\verify_bundle.py 'C:\MuseBuild\MuseWeChatManager-0.1.0-preview-r11-review.zip' 'C:\MuseBuild\r11-check' --port 19700
 ```
 
 验证会改写这份临时解压副本的第一组测试端口，再启动、重启和停止其中的进程。源码测试与 EXE 验证应顺序运行；测试不进行真人登录或真实消息调用。
 
 ## 数据与许可
+
+新建实例默认关闭正文日志，已有配置不自动改写。**助手发送队列会在本机 SQLite 保存明文正文**；日志若开启正文记录也会保存文本，保留到手动删除。DPAPI 只加密凭据，不加密全部聊天数据，内存传输的说明只针对凭据/附件负载。
 
 登录后生成的 `secrets/`、`runtime/`、`manager-data/`、浏览器配置、聊天记录和日志属于本机数据，已设为 Git 忽略。DPAPI 文件即使加密也不应上传。示例配置无需 `.env`；实际密钥通过本机界面保存。
 

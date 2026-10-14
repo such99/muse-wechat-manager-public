@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import ROOT, CODE_ROOT, load_instance, quiet, secure_local
+from common import ROOT, CODE_ROOT, load_instance, quiet, secure_local, secret_matches
 from journal import InstanceJournal
 from credential_vault import Vault, VaultError
 
@@ -379,8 +379,16 @@ def create_bridge(settings, client=None, policy=None):
         body=await request.json()
         if not all_feed or body.get('confirm_checked_main_chat') is not True:
             raise HTTPException(400,'Manually inspect the original main-chat input first')
-        try:manager.incoming.resolve(body.get('message_id'),body.get('resolution'))
+        mid=body.get('message_id');resolution=body.get('resolution')
+        with binding_lock:uid=allowed_user
+        try:
+            expected_key=manager.incoming.review_key(uid,mid,resolution)
+            # Resolve Muse first. A lost response leaves bridge paused; repeating
+            # this explicit review is idempotent and never submits the old input.
+            manager.resolve_input(uid,mid,resolution)
+            manager.incoming.resolve(mid,resolution,expected_key)
         except ValueError:raise HTTPException(409,'Uncertain input or resolution changed')
+        except (ChatFailure,requests.RequestException):raise HTTPException(409,'Muse review could not be confirmed; bridge remains paused')
         return manager.incoming.status()
 
     @app.post('/local/qr')
@@ -489,7 +497,7 @@ def create_bridge(settings, client=None, policy=None):
 
     @app.post('/internal/stop')
     async def internal_stop(request: Request):
-        if not secrets.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + key):
+        if not secret_matches(request.headers.get('authorization', ''), 'Bearer ' + key):
             raise HTTPException(401, 'Authentication required')
         app.state.server.should_exit = True
         return {'ok': True}

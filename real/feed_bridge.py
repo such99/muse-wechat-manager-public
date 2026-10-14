@@ -15,6 +15,7 @@ from ilink import ILinkAPIError
 
 class FeedBridge:
     def __init__(self,settings,key,client,journal,stop,binding,state):
+        self.settings_instance=settings.get('instance','')
         self.base=f"http://127.0.0.1:{settings['muse_port']}/v1/muse"
         self.key,self.client,self.journal,self.stop,self.binding,self.state=key,client,journal,stop,binding,state
         self.session=requests.Session();self.session.trust_env=False
@@ -59,6 +60,13 @@ class FeedBridge:
     def notice(self,uid,mid,text):
         source=hashlib.sha256(json.dumps([uid,mid,'notice']).encode()).hexdigest()
         self.api('/notice',{'text':text,'message_id':source},session=self.submit_session)
+
+    def resolve_input(self,uid,mid,resolution):
+        status=self.api('/feed',session=self.submit_session)
+        # Must match chat()'s instance-scoped source identity exactly.
+        source=hashlib.sha256(json.dumps([self.settings_instance+':'+uid,mid],ensure_ascii=True).encode()).hexdigest()
+        return self.api('/resolve-input',{'source_id':source,'resolution':resolution,
+            'owner_fingerprint':status.get('owner_fingerprint'),'confirm_checked_main_chat':True},session=self.submit_session)
 
     def transition(self,head,action,uid):
         return self.api('/outbox',{'n':head['n'],'action':action,'target':uid})

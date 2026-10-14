@@ -12,7 +12,7 @@ import zipfile
 from packaging.requirements import Requirement
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.0-preview-r10'
+VERSION = '0.1.0-preview-r11-review'
 PYTHON_URL = 'https://www.python.org/ftp/python/3.13.14/python-3.13.14-embed-amd64.zip'
 PYTHON_SHA = '90b4e5b9898b72d744650524bff92377c367f44bd5fbd09e3148656c080ad907'
 REAL = '''common.py credential_vault.py manager_core.py manager_service.py mimo_manager.py windows_job.py
