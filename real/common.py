@@ -128,7 +128,9 @@ class OneAccount:
         required = ('hatch_sess', 'hatch_gw', 'hatch_vml', 'hatch_native_auth_device')
         if not isinstance(cookies, dict) or not all(isinstance(cookies.get(k), str) and cookies[k] for k in required):
             raise ValueError('Four required Muse cookies are missing')
-        if any(not isinstance(k, str) or not re.fullmatch(r'[A-Za-z0-9_]+', k) or
+        # Muse also issues prefixed cookies such as __Host-hatch_one_tap.
+        # Hyphens are valid in names; separators and control characters are not.
+        if any(not isinstance(k, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', k) or
                not isinstance(v, str) or any(c in v for c in ('\r', '\n', ';')) for k, v in cookies.items()):
             raise ValueError('Invalid cookies')
         self.cookies = dict(cookies)

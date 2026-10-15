@@ -174,6 +174,10 @@ class StrictEngine(MuseEngine):
             if not value:
                 continue
             entry = {'name': name, 'value': value, 'domain': '.muse.ai', 'path': '/', 'secure': True}
+            if name.startswith('__Host-'):
+                # Host-prefixed cookies prohibit Domain, including .muse.ai.
+                entry.pop('domain')
+                entry['url'] = 'https://muse.ai/'
             expiry = (expires or {}).get(name)
             if expiry and float(expiry) > 0:
                 if float(expiry) <= time.time():
