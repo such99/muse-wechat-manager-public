@@ -1,1 +1,2 @@
 cf22ec047ccd44741a753da1e53e9a527386bc88155247e324053c0da8265bb2  MuseWeChatManager-0.1.0-preview-r10.zip
+19ffa6bd9a854f525dd67a139cdc880f6c15024c8e9881e7d586999155d9cc78  MuseWeChatManager-0.1.0-preview-r11.zip

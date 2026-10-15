@@ -20,7 +20,7 @@ from credential_vault import Vault, VaultError
 from manager_core import Supervisor, ManagerError
 from mimo_manager import MiMoAssistant, diagnostic
 
-VERSION = '0.1.0-preview'
+VERSION = '0.1.0-preview-r11'
 
 
 def create_manager(root=ROOT, port=18700, supervisor=None):

@@ -2,18 +2,18 @@
 
 在 Windows 本机连接 Muse（muse.ai）与微信 WeChat，通过微信 iLink Bot 通道收发消息，管理多组独立账号、浏览器和消息队列。每组连接一个 Muse 账号和一个微信 Bot 授权；这是实验性预览项目。
 
-[下载便携包](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r10) · [操作手册](packaging/USER-GUIDE.md) · [版本记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md)
+[下载便携包](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r11) · [操作手册](packaging/USER-GUIDE.md) · [版本记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md)
 
 ## 当前版本
 
 | 内容 | 状态 |
 | --- | --- |
-| 已发布的 Windows 便携包 | **0.1.0-preview-r10**，包含 EXE、Python 与运行依赖 |
-| main 分支源码 | **r11 审查候选**，新增队列人工恢复、重启未提交消息提示、生成暂停修复及 Muse 登录确认 HTTP 409 修复，尚未发布新便携包 |
+| 已发布的 Windows 便携包 | **0.1.0-preview-r11**，包含全部恢复与登录修复、EXE、Python 与运行依赖 |
+| main 分支源码 | **0.1.0-preview-r11**，与本次便携包的运行源码一致 |
 
-**r10 下载包不包含 r11 的恢复修复。** 已知问题、修复范围和待验证项见 [r11 审查说明](docs/CLAUDE-REVIEW-FIXES.md)。候选源码不等于已经在手机或所有部署环境验证的新版本。
+r11 统一发布队列恢复与 Muse 登录确认修复。下载与旧安装处理见 [r11 发布说明](docs/RELEASE-r11.md)，已知限制见 [审查说明](docs/CLAUDE-REVIEW-FIXES.md)。
 
-2026-10-16 补充：已修复 Muse 前缀 Cookie 导致的登录确认 HTTP 409，实例 2 已由使用者确认微信绑定和测试通过。原因与验证范围见 [登录修复记录](docs/LOGIN-409-FIX-2026-10-16.md)；r10 下载包尚未包含此修复。
+2026-10-16 补充：已修复 Muse 前缀 Cookie 导致的登录确认 HTTP 409，实例 2 已由使用者确认微信绑定和测试通过。原因与验证范围见 [登录修复记录](docs/LOGIN-409-FIX-2026-10-16.md)；本次 r11 下载包已包含此修复。
 
 ## 可以做什么
 
@@ -27,7 +27,7 @@
 
 ## 下载与使用
 
-1. 从 [r10 Release](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r10) 下载 ZIP，对照同版本的 [SHA256 校验值](distribution/SHA256SUMS.txt)，完整解压到可写目录。
+1. 从 [r11 Release](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r11) 下载 ZIP，对照同版本的 [SHA256 校验值](distribution/SHA256SUMS.txt)，完整解压到可写目录。
 2. 在 Windows x64 上双击 `Muse微信管理台.exe`，默认打开 `http://127.0.0.1:18700/`。需要已安装 Google Chrome 和系统 .NET Framework 4.x；便携包附带 Python 运行环境。
 3. 按 [操作手册](packaging/USER-GUIDE.md) 在专用窗口登录本人 Muse、确认主聊天，再扫码授权并绑定本人微信。
 4. 用手机完成文字、图片、文件收发核验。MiMo 为可选项，API Key 仅在本机软件中填写。
@@ -39,7 +39,7 @@ Release 另附 `manifest.json` 和便携包验证结果。ZIP、EXE 仅放在 Re
 - 依赖 Chrome 自动化及 Muse 页面和接口结构；页面改版、授权变化、平台规则或服务限制可能使功能失效。使用者应遵守相关平台要求。
 - 网页和提醒目前以 `[网页]`、`[提醒/任务入口]` 等文字显示，**截图转发尚未实现**；语音也未完成支持。
 - 程序不设累计发送条数上限，但实际微信接口仍可能拒收。提交或发送结果不明时暂停，需本人核对，不自动盲重发；iLink `-2` 的送达语义仍待真实平台验证。
-- 未提交的排队文字和附件负载只在内存中；停止或重启后可能需要本人重发。r11 的通知与恢复改进尚未包含在 r10 包中。
+- 未提交的排队文字和附件负载只在内存中；停止或重启后可能需要本人重发。r11 提供未提交项通知及需本人核对的恢复入口。
 - **助手发送队列会在本机 SQLite 保存明文正文。** r10 默认开启正文日志；r11 新建实例默认关闭，已有配置不自动改变。DPAPI 只加密凭据，不加密全部聊天数据。
 - `runtime/`、`secrets/`、`manager-data/`、日志和浏览器会话属于本机私人数据，保留到手动清理；不要上传或分享整个使用后的软件目录。
 

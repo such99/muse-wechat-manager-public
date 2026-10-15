@@ -60,11 +60,14 @@ def verify(archive, directory, port=18700):
                 time.sleep(.2)
             else: raise AssertionError('Manager startup timed out')
             assert r.json()['root_id'] == hashlib.sha256(str(directory).lower().encode()).hexdigest()
+            assert r.json()['version'] == manifest['version']
             result['clean_exe_startup'] = 'PASS'
             assert client.get(base + '/local/overview').status_code == 401
             client.get(base + '/')
             headers = {'Origin': base, 'X-Local-Action': '1'}
             before = client.get(base + '/local/overview').json()
+            assert before['version'] == manifest['version']
+            result['reported_version_matches_manifest'] = 'PASS'
             assert len(before['instances']) == 6 and not any(r['running'] for r in before['instances'])
             result['six_clean_inactive_configurations'] = 'PASS'
             duplicate = subprocess.Popen([str(exe), *launch_args], cwd=directory,
