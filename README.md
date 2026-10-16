@@ -8,7 +8,13 @@
 
 在 Windows 本机连接 Muse（muse.ai）与微信 WeChat，通过微信 iLink Bot 通道收发消息，管理多组独立账号、浏览器和消息队列。每组连接一个 Muse 账号和一个微信 Bot 授权；这是实验性预览项目。
 
-[下载便携包](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r11) · [操作手册](packaging/USER-GUIDE.md) · [版本记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md)
+[**⬇ 下载 Windows 便携版 r11（含 EXE）**](https://github.com/such99/muse-wechat-manager-public/releases/tag/v0.1.0-preview-r11) · [操作手册](packaging/USER-GUIDE.md) · [版本记录](CHANGELOG.md) · [开发指南](CONTRIBUTING.md)
+
+完整解压后双击 `Muse微信管理台.exe`，无需自行安装 Python。需要 Windows x64、Google Chrome 和系统 .NET Framework 4.x。
+
+![Muse 微信管理台：六组默认实例的干净安装界面](docs/assets/manager-clean-install.png)
+
+*r11 干净安装界面：六组默认实例均未登录、未绑定账号；未使用真实账号或聊天数据。*
 
 ## 当前版本
 
