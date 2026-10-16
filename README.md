@@ -1,3 +1,9 @@
+> 🎁 **我的 Muse 邀请码：`SA7JX4`**
+>
+> 注册 Muse 需要邀请码的话，欢迎用我的这一个（App 里：设置 > Redeem token；网页版：设置 > General > Usage > Redeem invite code）。顺手帮个忙，谢谢！
+>
+> 🎁 **My Muse invite code: `SA7JX4`** — if you need an invite code when signing up for Muse, feel free to use mine. Thanks for the support!
+
 # Muse 微信管理台（Muse WeChat Manager）
 
 在 Windows 本机连接 Muse（muse.ai）与微信 WeChat，通过微信 iLink Bot 通道收发消息，管理多组独立账号、浏览器和消息队列。每组连接一个 Muse 账号和一个微信 Bot 授权；这是实验性预览项目。
@@ -33,14 +39,6 @@ r11 统一发布队列恢复与 Muse 登录确认修复。下载与旧安装处�
 4. 用手机完成文字、图片、文件收发核验。MiMo 为可选项，API Key 仅在本机软件中填写。
 
 Release 另附 `manifest.json` 和便携包验证结果。ZIP、EXE 仅放在 Releases，源码仓库不包含使用后的运行目录。
-
-## Muse 邀请码 / Invite code
-
-> 🎁 **我的 Muse 邀请码：`SA7JX4`**
->
-> 注册 Muse 需要邀请码的话，欢迎用我的这一个（App 里：设置 > Redeem token；网页版：设置 > General > Usage > Redeem invite code）。顺手帮个忙，谢谢！
->
-> 🎁 **My Muse invite code: `SA7JX4`** — if you need an invite code when signing up for Muse, feel free to use mine. Thanks for the support!
 
 ## 使用限制与数据
 
